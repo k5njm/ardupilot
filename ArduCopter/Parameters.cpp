@@ -1104,6 +1104,20 @@ const AP_Param::Info Copter::var_info[] = {
     // @Path: ../libraries/AP_Notify/AP_Notify.cpp
     GOBJECT(notify, "NTF_",  AP_Notify),
 
+    // @Param: LAND_BASKET_ALT
+    // @DisplayName: Precision Landing Basket Altitude
+    // @Description: Altitude (in cm) of the top of the landing basket
+    // @Range: 0 32767
+    // @User: Advanced
+    GSCALAR(land_basket_alt, "LAND_BASKET_ALT", LAND_BASKET_ALT_DEFAULT),
+
+    // @Param: LAND_BEACON_ALT
+    // @DisplayName: Precision Landing Beacon Altitude
+    // @Description: Altitude (in cm) of the landing beacon
+    // @Range: 0 32767
+    // @User: Advanced
+    GSCALAR(land_beacon_alt, "LAND_BEACON_ALT", LAND_BEACON_ALT_DEFAULT),
+
     AP_VAREND
 };
 
@@ -1129,8 +1143,8 @@ const AP_Param::ConversionInfo conversion_table[] = {
     { Parameters::k_param_pack_capacity,      0,      AP_PARAM_INT32, "BATT_CAPACITY" },
     { Parameters::k_param_log_bitmask_old,    0,      AP_PARAM_INT16, "LOG_BITMASK" },
     { Parameters::k_param_serial0_baud,       0,      AP_PARAM_INT16, "SERIAL0_BAUD" },
-    { Parameters::k_param_serial1_baud,       0,      AP_PARAM_INT16, "SERIAL1_BAUD" },
-    { Parameters::k_param_serial2_baud,       0,      AP_PARAM_INT16, "SERIAL2_BAUD" },
+//    { Parameters::k_param_serial1_baud,       0,      AP_PARAM_INT16, "SERIAL1_BAUD" },
+//    { Parameters::k_param_serial2_baud,       0,      AP_PARAM_INT16, "SERIAL2_BAUD" },
 };
 
 void Copter::load_parameters(void)

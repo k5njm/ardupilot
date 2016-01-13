@@ -772,3 +772,12 @@
 #endif
 
 #endif // __ARDUCOPTER_CONFIG_H__
+
+  //Landing Beacon Defaults -- By Nick
+#ifndef LAND_BASKET_ALT_DEFAULT
+ # define LAND_BASKET_ALT_DEFAULT      60     // 2ft in cm
+#endif
+
+#ifndef LAND_BEACON_ALT_DEFAULT
+ # define LAND_BEACON_ALT_DEFAULT      42     // 1.38ft
+#endif

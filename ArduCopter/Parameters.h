@@ -120,8 +120,8 @@ public:
         k_param_poshold_brake_angle_max,
         k_param_pilot_accel_z,
         k_param_serial0_baud,           // deprecated - remove
-        k_param_serial1_baud,           // deprecated - remove
-        k_param_serial2_baud,           // deprecated - remove
+        k_param_land_basket_alt, //Altitude of the top of our landing basket --Added by Nick
+        k_param_land_beacon_alt, //Altitude of the IRLock landing beacon --Added by Nick
         k_param_land_repositioning,
         k_param_sonar, // sonar object
         k_param_fs_ekf_thresh,
