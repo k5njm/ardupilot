@@ -450,8 +450,8 @@ public:
     AP_Float        fs_ekf_thresh;
     AP_Int16        gcs_pid_mask;
 
-    AP_Int8         land_basket_alt  //Added by Nick
-    AP_Int8         land_beacon_alt  //Added by Nick
+    AP_Int8         land_basket_alt;  //Added by Nick
+    AP_Int8         land_beacon_alt;  //Added by Nick
 
 
 #if FRAME_CONFIG ==     HELI_FRAME
