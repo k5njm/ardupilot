@@ -802,6 +802,8 @@ private:
 
     bool rtl_init(bool ignore_checks);
     void rtl_run();
+    bool rtlprec_init(bool ignore_checks); //Added by Nick
+    void rtlprec_run(); //Added by Nick
     void rtl_climb_start();
     void rtl_return_start();
     void rtl_climb_return_run();
@@ -809,6 +811,7 @@ private:
     void rtl_loiterathome_run();
     void rtl_descent_start();
     void rtl_descent_run();
+    void rtlprec_descent_run(); //Added by Nick 
     void rtl_land_start();
     void rtl_land_run();
     void rtl_build_path();

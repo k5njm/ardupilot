@@ -78,6 +78,11 @@ bool Copter::set_mode(uint8_t mode)
         case FLIP:
             success = flip_init(ignore_checks);
             break;
+ 
+        case RTLPREC:
+            success = rtlprec_init(ignore_checks);
+            break;
+
 
 #if AUTOTUNE_ENABLED == ENABLED
         case AUTOTUNE:
@@ -191,6 +196,10 @@ void Copter::update_flight_mode()
             flip_run();
             break;
 
+        case RTLPREC:
+            rtlprec_run();
+            break;
+
 #if AUTOTUNE_ENABLED == ENABLED
         case AUTOTUNE:
             autotune_run();
@@ -267,6 +276,7 @@ bool Copter::mode_requires_GPS(uint8_t mode) {
         case GUIDED:
         case LOITER:
         case RTL:
+        case RTLPREC:
         case CIRCLE:
         case DRIFT:
         case POSHOLD:
@@ -345,6 +355,9 @@ void Copter::print_flight_mode(AP_HAL::BetterStream *port, uint8_t mode)
         break;
     case RTL:
         port->print("RTL");
+        break;
+    case RTLPREC:
+        port->print("RTLPREC");
         break;
     case CIRCLE:
         port->print("CIRCLE");
