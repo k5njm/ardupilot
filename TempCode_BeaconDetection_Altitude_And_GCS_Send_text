@@ -1,0 +1,31 @@
+/*==============================================================
+These two code blocks are TESTED and WORKING
+
+//This block compares the copter altitude to the landing basket altitude parameter.
+//It takes the absolute value, and compares if the two are within 10 cm of eachother, and sends a message if true
+
+    if (fabsf(g.land_basket_alt - inertial_nav.get_altitude()) < 10.0f) {
+      gcs_send_text(MAV_SEVERITY_INFO,"Copter at Landing Basket Alt");
+    }
+
+//This block evaluates the beacon_detected class in ../libraries/AP_PrecLand/PrecLand.cpp
+//That function returns true if it detects a beacon and false if it does not.
+    if (precland.beacon_detected()) {
+        gcs_send_text(MAV_SEVERITY_INFO,"Beacon Detected!");
+    }
+
+*/
+
+
+Add to libraries/AC_PrecLand/PrecLand.cpp
+  bool AC_PrecLand::beacon_detected()
+  {
+     if (_backend->get_angle_to_target(_angle_to_target.x, _angle_to_target.y)) {
+          return true;
+      }
+  }
+
+
+Add to libraries/AC_PrecLand/Precland.h
+    //Custom class by Nick to return if the beacon is detected --Nick
+    bool beacon_detected();
