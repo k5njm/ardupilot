@@ -73,7 +73,7 @@ void Copter::rtlprec_run()
         break;
 
     case RTL_Land:
-        rtl_land_run();
+        rtlprec_land_run();
         break;
     }
 }
@@ -327,7 +327,9 @@ void Copter::rtl_land_start()
 }
 // rtl_returnhome_run - return home
 //      called by rtl_run at 100hz or more
-void Copter::rtl_land_run()
+*/
+
+void Copter::rtlprec_land_run()
 {
     int16_t roll_control = 0, pitch_control = 0;
     float target_yaw_rate = 0;
@@ -383,6 +385,13 @@ void Copter::rtl_land_run()
      // process pilot's roll and pitch input
     wp_nav.set_pilot_desired_acceleration(roll_control, pitch_control);
 
+#if PRECISION_LANDING == ENABLED
+    // run precision landing
+    if (!ap.land_repo_active) {
+        wp_nav.shift_loiter_target(precland.get_target_shift(wp_nav.get_loiter_target()));
+    }
+#endif
+
     // run loiter controller
     wp_nav.update_loiter(ekfGndSpdLimit, ekfNavVelGainScaler);
 
@@ -401,6 +410,7 @@ void Copter::rtl_land_run()
     rtl_state_complete = ap.land_complete;
 }
 
+/*
 void Copter::rtl_build_path()
 {
     // origin point is our stopping point

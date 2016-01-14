@@ -811,7 +811,8 @@ private:
     void rtl_loiterathome_run();
     void rtl_descent_start();
     void rtl_descent_run();
-    void rtlprec_descent_run(); //Added by Nick 
+    void rtlprec_descent_run(); //Added by Nick
+    void rtlprec_land_run(); //Added by Nick  
     void rtl_land_start();
     void rtl_land_run();
     void rtl_build_path();
