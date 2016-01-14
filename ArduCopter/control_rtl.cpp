@@ -283,6 +283,13 @@ void Copter::rtl_descent_run()
     // process roll, pitch inputs
     wp_nav.set_pilot_desired_acceleration(roll_control, pitch_control);
 
+#if PRECISION_LANDING == ENABLED
+    // run precision landing
+    if (!ap.land_repo_active) {
+        wp_nav.shift_loiter_target(precland.get_target_shift(wp_nav.get_loiter_target()));
+    }
+#endif
+    
     // run loiter controller
     wp_nav.update_loiter(ekfGndSpdLimit, ekfNavVelGainScaler);
 
@@ -370,6 +377,13 @@ void Copter::rtl_land_run()
 
      // process pilot's roll and pitch input
     wp_nav.set_pilot_desired_acceleration(roll_control, pitch_control);
+
+#if PRECISION_LANDING == ENABLED
+    // run precision landing
+    if (!ap.land_repo_active) {
+        wp_nav.shift_loiter_target(precland.get_target_shift(wp_nav.get_loiter_target()));
+    }
+#endif
 
     // run loiter controller
     wp_nav.update_loiter(ekfGndSpdLimit, ekfNavVelGainScaler);
