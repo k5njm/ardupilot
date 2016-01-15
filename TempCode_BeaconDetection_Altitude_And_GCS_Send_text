@@ -29,3 +29,15 @@ Add to libraries/AC_PrecLand/PrecLand.cpp
 Add to libraries/AC_PrecLand/Precland.h
     //Custom class by Nick to return if the beacon is detected --Nick
     bool beacon_detected();
+
+
+Log_Write_Event() Useful to write events to datalog, shows up under log in in EV. Define items in defines.h
+
+in defines.h:
+#define DATA_RTKPREC_DESCENT_START  61
+#define DATA_RTKPREC_RETRY          62
+#define DATA_RTKPREC_LAND_START     63
+
+in function:
+Log_Write_Event(DATA_RTKPREC_RETRY);
+

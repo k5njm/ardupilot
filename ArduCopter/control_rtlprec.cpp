@@ -38,9 +38,11 @@ void Copter::rtlprec_run()
             rtl_loiterathome_start();
             break;
         case RTL_LoiterAtHome:
+            Log_Write_Event(DATA_RTKPREC_DESCENT_START);
             rtl_descent_start();
             break;
         case RTL_FinalDescent:
+            Log_Write_Event(DATA_RTKPREC_LAND_START);
             rtl_land_start();
             break;
         case RTL_Land:
@@ -145,6 +147,7 @@ void Copter::rtlprec_descent_run()
             rtl_state_complete = true;  //Move on to landing if I have a beacon
         } else {
             //It's just going to loiter here if we don't tell it to try again
+            Log_Write_Event(DATA_RTKPREC_RETRY);
             rtl_state = RTL_InitialClimb;
         }
     } 
@@ -241,6 +244,7 @@ void Copter::rtlprec_land_run()
     //float current_alt = (inertial_nav.get_altitude() - 6.0f;
 
     if ((current_alt < (g.land_beacon_alt - 5.0f)) && (!precland.beacon_detected()) && (!ap.land_complete)) {  //If I've descended 5 cm below the beacon and the beacon is no longer in view and I'm not landed
+        Log_Write_Event(DATA_RTKPREC_RETRY);
         rtl_state = RTL_InitialClimb;  //Abort and retry
         } 
 }
