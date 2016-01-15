@@ -143,6 +143,19 @@ Vector3f AC_PrecLand::get_target_shift(const Vector3f &orig_target)
     return shift;
 }
 
+
+//Function by Nick - Returns true if the IRLock sensor sees a target
+bool AC_PrecLand::beacon_detected()
+  {
+    if (_backend->get_angle_to_target(_angle_to_target.x, _angle_to_target.y)) {
+          return true;
+    } else {
+            return false;
+    }
+
+  }
+
+
 // calc_angles_and_pos - converts sensor's body-frame angles to earth-frame angles and position estimate
 //  raw sensor angles stored in _angle_to_target (might be in earth frame, or maybe body frame)
 //  earth-frame angles stored in _ef_angle_to_target

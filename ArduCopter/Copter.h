@@ -804,6 +804,7 @@ private:
     void rtl_run();
     bool rtlprec_init(bool ignore_checks); //Added by Nick
     void rtlprec_run(); //Added by Nick
+    void rtlprec_build_path(); //Added by Nick
     void rtl_climb_start();
     void rtl_return_start();
     void rtl_climb_return_run();

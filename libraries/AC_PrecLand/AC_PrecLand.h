@@ -70,6 +70,9 @@ public:
     // parameter var table
     static const struct AP_Param::GroupInfo var_info[];
 
+    //Added by Nick for Beacon detection
+    bool beacon_detected();
+
 private:
 
     // calc_angles_and_pos - converts sensor's body-frame angles to earth-frame angles and position estimate
