@@ -150,7 +150,8 @@ void Copter::rtlprec_land_run()
 
     if (!precland.beacon_detected()) {          // If the beacon isn't detected
         if (beacon_failure_counter >= 100) {        // We've hit 100 failures, let's abort and retry
-            rtl_state = RTL_InitialClimb;           // Set the state back to Initial climb  
+            rtl_state = RTL_InitialClimb;           // Set the state back to Initial climb
+            beacon_failure_counter = 0;             // Zero out the counter  
             Log_Write_Event(DATA_RTLPREC_RETRY);
             return;
         }
