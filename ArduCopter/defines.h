@@ -334,9 +334,8 @@ enum FlipState {
 #define DATA_ROTOR_RUNUP_COMPLETE           58  // Heli only
 #define DATA_ROTOR_SPEED_BELOW_CRITICAL     59  // Heli only
 #define DATA_EKF_ALT_RESET                  60
-#define DATA_RTKPREC_DESCENT_START          61
-#define DATA_RTKPREC_RETRY                  62
-#define DATA_RTKPREC_LAND_START             63
+#define DATA_RTLPREC_DESCENT_START          61
+#define DATA_RTLPREC_RETRY                  62
 
 // Centi-degrees to radians
 #define DEGX100 5729.57795f
