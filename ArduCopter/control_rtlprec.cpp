@@ -18,6 +18,7 @@ bool Copter::rtlprec_init(bool ignore_checks)
     
     //initialize beacon_failure_counter
     beacon_failure_counter = 0;
+    beacon_hop_retry_counter = 0;
 
     if (position_ok() || ignore_checks) {
         rtl_build_path();
@@ -54,6 +55,9 @@ void Copter::rtlprec_run()
         case RTL_Land:
             // do nothing - rtl_land_run will take care of disarming motors
             break;
+        case RTLPREC_HOP:
+            rtlprec_land_run();
+            break;
         }
     }
 
@@ -74,6 +78,9 @@ void Copter::rtlprec_run()
 
     case RTL_Land:
         rtlprec_land_run();
+        break;
+    case RTLPREC_HOP:
+        rtlprec_hop_run();
         break;
     }
 }
@@ -149,16 +156,27 @@ void Copter::rtlprec_land_run()
     float cmb_rate = get_land_descent_speed();
 
     if (!precland.beacon_detected()) {          // If the beacon isn't detected
-        if (beacon_failure_counter >= 100) {        // We've hit 100 failures, let's abort and retry
-            rtl_state = RTL_InitialClimb;           // Set the state back to Initial climb
-            beacon_failure_counter = 0;             // Zero out the counter  
-            Log_Write_Event(DATA_RTLPREC_RETRY);
-            return;
+        if (beacon_failure_counter >= 500) { //g.rtlprec_lostwait) {        // We've hit our max number of cycle failures,
+           if (beacon_hop_retry_counter < g.rtlprec_hopretry) {       // We're below our max number of short hop retries, do a Hop
+                beacon_hop_retry_counter++;                                 //Increment Hop Counter
+                Vector3f target_pos = inertial_nav.get_position();          //Get My current position
+                target_pos.z = target_pos.z + g.rtlprec_hopalt;              //Set Z to current altitude + rtlprec_hopalt
+                wp_nav.set_wp_destination(target_pos);
+                rtl_state = RTLPREC_HOP;
+                return;  
+            }
+            else {                                       //We've done the max number of hops, let's do a full abort/retry to rtl_alt!
+                 rtl_state = RTL_InitialClimb;           // Set the state back to Initial climb
+                beacon_failure_counter = 0;             // Zero out the cycle counter
+                beacon_hop_retry_counter = 0;           // Zero out hop_retry counter
+                Log_Write_Event(DATA_RTLPREC_RETRY);
+                return;  
+            }
         }
        else {                                   // If we're at < 100 failures, keep our climb rate halted, and increment our failure counter
             cmb_rate = 0;                           // Halt descent
             beacon_failure_counter++;               // Increment failure counter
-        }
+            }
     }
     else{                                       // If we see the beacon
         beacon_failure_counter = 0;                 // Clear the counter, descent will resume
@@ -178,5 +196,51 @@ void Copter::rtlprec_land_run()
     // check if we've completed this stage of RTL
     rtl_state_complete = ap.land_complete;
 
+}
+
+
+void Copter::rtlprec_hop_run()      //This function runs the waypoint controller while running a "Short hop"
+{
+      // if not auto armed or motor interlock not enabled set throttle to zero and exit immediately
+    if(!ap.auto_armed || !motors.get_interlock()) {
+#if FRAME_CONFIG == HELI_FRAME  // Helicopters always stabilize roll/pitch/yaw
+        // call attitude controller
+        attitude_control.input_euler_angle_roll_pitch_euler_rate_yaw_smooth(0, 0, 0, get_smoothing_gain());
+        attitude_control.set_throttle_out(0,false,g.throttle_filt);
+#else   // multicopters do not stabilize roll/pitch/yaw when disarmed
+        // reset attitude control targets
+        attitude_control.set_throttle_out_unstabilized(0,true,g.throttle_filt);
+#endif
+        // To-Do: re-initialise wpnav targets
+        return;
+    }
+
+    // process pilot's yaw input
+    float target_yaw_rate = 0;
+    if (!failsafe.radio) {
+        // get pilot's desired yaw rate
+        target_yaw_rate = get_pilot_desired_yaw_rate(channel_yaw->control_in);
+        if (!is_zero(target_yaw_rate)) {
+            set_auto_yaw_mode(AUTO_YAW_HOLD);
+        }
+    }
+
+    // run waypoint controller
+    wp_nav.update_wpnav();
+
+    // call z-axis position controller (wpnav should have already updated it's alt target)
+    pos_control.update_z_controller();
+
+    // call attitude controller
+    if (auto_yaw_mode == AUTO_YAW_HOLD) {
+        // roll & pitch from waypoint controller, yaw rate from pilot
+        attitude_control.input_euler_angle_roll_pitch_euler_rate_yaw(wp_nav.get_roll(), wp_nav.get_pitch(), target_yaw_rate);
+    }else{
+        // roll, pitch from waypoint controller, yaw heading from auto_heading()
+        attitude_control.input_euler_angle_roll_pitch_yaw(wp_nav.get_roll(), wp_nav.get_pitch(), get_auto_heading(),true);
+    }
+
+    // check if we've completed this stage of RTL
+    rtl_state_complete = wp_nav.reached_wp_destination();
 }
 
