@@ -91,27 +91,12 @@ void Copter::rtlprec_land_run()
 
     // if not auto armed or landing completed or motor interlock not enabled set throttle to zero and exit immediately
     if(!ap.auto_armed || ap.land_complete || !motors.get_interlock()) {
-#if FRAME_CONFIG == HELI_FRAME  // Helicopters always stabilize roll/pitch/yaw
-        // call attitude controller
-        attitude_control.input_euler_angle_roll_pitch_euler_rate_yaw_smooth(0, 0, 0, get_smoothing_gain());
-        attitude_control.set_throttle_out(0,false,g.throttle_filt);
-#else   // multicopters do not stabilize roll/pitch/yaw when disarmed
         attitude_control.set_throttle_out_unstabilized(0,true,g.throttle_filt);
-#endif
-        // set target to current position
         wp_nav.init_loiter_target();
 
-#if LAND_REQUIRE_MIN_THROTTLE_TO_DISARM == ENABLED
-        // disarm when the landing detector says we've landed and throttle is at minimum
-        if (ap.land_complete && (ap.throttle_zero || failsafe.radio)) {
-            init_disarm_motors();
-        }
-#else
-        // disarm when the landing detector says we've landed
         if (ap.land_complete) {
             init_disarm_motors();
         }
-#endif
 
         // check if we've completed this stage of RTL
         rtl_state_complete = ap.land_complete;
@@ -159,8 +144,9 @@ void Copter::rtlprec_land_run()
            if (beacon_hop_retry_counter < g.rtlprec_hopretry) {       // We're below our max number of short hop retries, do a Hop
                 rtlstatus = 3;
                 beacon_hop_retry_counter++;                                 //Increment Hop Counter
+                beacon_failure_counter = 0;                                 // Zero out the cycle counter
                 Vector3f target_pos = inertial_nav.get_position();          //Get My current position
-                target_pos.z = target_pos.z + g.rtlprec_hopalt;              //Set Z to current altitude + rtlprec_hopalt
+                target_pos.z = target_pos.z + g.rtlprec_hopalt;             //Set Z to current altitude + rtlprec_hopalt
                 wp_nav.set_wp_destination(target_pos);
                 rtl_state = RTLPREC_HOP;
                 return;  
@@ -204,14 +190,14 @@ void Copter::rtlprec_land_run()
       if (ap.land_complete){
         rtlstatus = 5;
       }
+
     static uint32_t last_sec;
     
     uint32_t tnow = AP_HAL::millis();
     
     if (tnow - last_sec > 1000) {
         last_sec = tnow;
-        gcs_send_text_fmt(MAV_SEVERITY_INFO, "Altitude: %f | Beacon:%d",inertial_nav.get_altitude(),precland.beacon_detected());
-        gcs_send_text_fmt(MAV_SEVERITY_INFO, "Status: %u |Failures: %u | Hops: %u|",rtlstatus,beacon_failure_counter,beacon_hop_retry_counter);
+        gcs_send_text_fmt(MAV_SEVERITY_INFO, "Altitude: %f | Beacon:%d | Status: %u |Failures: %u | Hops: %u|",inertial_nav.get_altitude(),precland.beacon_detected(),rtlstatus,beacon_failure_counter,beacon_hop_retry_counter);
 
     }
 
