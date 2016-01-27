@@ -15,89 +15,85 @@
  */
 
 // rtlprec_init - initialise rtl controller
-bool Copter::rtlprec_init(bool ignore_checks)
-{
-   
+
+bool Copter::rtlprec_init(bool ignore_checks) {
+
     if (position_ok() || ignore_checks) {
         rtl_build_path();
         rtl_climb_start();
         return true;
-    }else{
+    } else {
         return false;
     }
 }
 
 // rtl_run - runs the return-to-launch controller
 // should be called at 100hz or more
-void Copter::rtlprec_run()
-{
+
+void Copter::rtlprec_run() {
     // check if we need to move to next state
     if (rtl_state_complete) {
         switch (rtl_state) {
-        case RTL_InitialClimb:
-            rtl_return_start();
-            break;
-        case RTL_ReturnHome:
-            rtl_loiterathome_start();
-            break;
-        case RTL_LoiterAtHome:
-            Log_Write_Event(DATA_RTLPREC_DESCENT_START);
-            rtl_land_start();
-            break;
-        case RTL_FinalDescent:
-            // do nothing
-            break;
-        case RTL_Land:
-            // do nothing - rtl_land_run will take care of disarming motors
-            break;
-        case RTLPREC_HOP:
-            rtlprec_land_run();
-            break;
+            case RTL_InitialClimb:
+                rtl_return_start();
+                break;
+            case RTL_ReturnHome:
+                rtl_loiterathome_start();
+                break;
+            case RTL_LoiterAtHome:
+                Log_Write_Event(DATA_RTLPREC_DESCENT_START);
+                rtl_land_start();
+                break;
+            case RTL_FinalDescent:
+                // do nothing
+                break;
+            case RTL_Land:
+                // do nothing - rtl_land_run will take care of disarming motors
+                break;
+            case RTLPREC_HOP:
+                rtlprec_land_run();
+                break;
         }
     }
 
     // call the correct run function
     switch (rtl_state) {
-
-    case RTL_InitialClimb:
-        rtl_climb_return_run();
-        break;
-
-    case RTL_ReturnHome:
-        rtl_climb_return_run();
-        break;
-
-    case RTL_LoiterAtHome:
-        rtl_loiterathome_run();
-        break;
-
-    case RTL_Land:
-        rtlprec_land_run();
-        break;
-    case RTLPREC_HOP:
-        rtlprec_hop_run();
-        break;
+        case RTL_InitialClimb:
+            rtl_climb_return_run();
+            break;
+        case RTL_ReturnHome:
+            rtl_climb_return_run();
+            break;
+        case RTL_LoiterAtHome:
+            rtl_loiterathome_run();
+            break;
+        case RTL_Land:
+            rtlprec_land_run();
+            break;
+        case RTLPREC_HOP:
+            rtlprec_hop_run();
+            break;
     }
 }
 
-
-void Copter::rtlprec_land_run()
-{
+void Copter::rtlprec_land_run() {
     int16_t roll_control = 0, pitch_control = 0;
     float target_yaw_rate = 0;
     static uint16_t beacon_failure_counter;
     static uint16_t beacon_hop_retry_counter;
     static uint8_t rtlstatus;
+    static uint32_t last_sec;
+    uint32_t tnow = AP_HAL::millis();
+    
+    if (tnow - last_sec > 1000) {
+        last_sec = tnow;
+        //gcs_send_text_fmt(MAV_SEVERITY_INFO, "Altitude: %f | Beacon:%d", inertial_nav.get_altitude(), precland.beacon_detected());
+        gcs_send_text_fmt(MAV_SEVERITY_INFO, "Status: %u |Failures: %u | Hops: %u|", rtlstatus, beacon_failure_counter, beacon_hop_retry_counter);
+    }
 
     // if not auto armed or landing completed or motor interlock not enabled set throttle to zero and exit immediately
-    if(!ap.auto_armed || ap.land_complete || !motors.get_interlock()) {
-#if FRAME_CONFIG == HELI_FRAME  // Helicopters always stabilize roll/pitch/yaw
-        // call attitude controller
-        attitude_control.input_euler_angle_roll_pitch_euler_rate_yaw_smooth(0, 0, 0, get_smoothing_gain());
-        attitude_control.set_throttle_out(0,false,g.throttle_filt);
-#else   // multicopters do not stabilize roll/pitch/yaw when disarmed
-        attitude_control.set_throttle_out_unstabilized(0,true,g.throttle_filt);
-#endif
+    if (!ap.auto_armed || ap.land_complete || !motors.get_interlock()) {
+        attitude_control.set_throttle_out_unstabilized(0, true, g.throttle_filt);
         // set target to current position
         wp_nav.init_loiter_target();
 
@@ -138,7 +134,7 @@ void Copter::rtlprec_land_run()
         target_yaw_rate = get_pilot_desired_yaw_rate(channel_yaw->control_in);
     }
 
-     // process pilot's roll and pitch input
+    // process pilot's roll and pitch input
     wp_nav.set_pilot_desired_acceleration(roll_control, pitch_control);
 
 #if PRECISION_LANDING == ENABLED
@@ -148,42 +144,38 @@ void Copter::rtlprec_land_run()
     }
 #endif
 
-
     // run loiter controller
     wp_nav.update_loiter(ekfGndSpdLimit, ekfNavVelGainScaler);
 
     float cmb_rate = get_land_descent_speed();
 
-    if (!precland.beacon_detected() && !ap.land_complete && !ap.land_complete_maybe) {          // If the beacon isn't detected
-        if (beacon_failure_counter >= g.rtlprec_lostwait) {        // We've hit our max number of cycle failures,
-           if (beacon_hop_retry_counter < g.rtlprec_hopretry) {       // We're below our max number of short hop retries, do a Hop
+    if (!precland.beacon_detected() && !ap.land_complete && !ap.land_complete_maybe) { // If the beacon isn't detected
+        if (beacon_failure_counter >= g.rtlprec_lostwait) { // We've hit our max number of cycle failures,
+            if (beacon_hop_retry_counter < g.rtlprec_hopretry) { // We're below our max number of short hop retries, do a Hop
                 rtlstatus = 3;
-                beacon_hop_retry_counter++;                                 //Increment Hop Counter
-                Vector3f target_pos = inertial_nav.get_position();          //Get My current position
-                target_pos.z = target_pos.z + g.rtlprec_hopalt;              //Set Z to current altitude + rtlprec_hopalt
+                beacon_hop_retry_counter++; //Increment Hop Counter
+                Vector3f target_pos = inertial_nav.get_position(); //Get My current position
+                target_pos.z += g.rtlprec_hopalt; //Set Z to current altitude + rtlprec_hopalt
                 wp_nav.set_wp_destination(target_pos);
                 rtl_state = RTLPREC_HOP;
-                return;  
-            }
-            else {                                       //We've done the max number of hops, let's do a full abort/retry to rtl_alt!
-                rtl_state = RTL_InitialClimb;           // Set the state back to Initial climb
-                beacon_failure_counter = 0;             // Zero out the cycle counter
-                beacon_hop_retry_counter = 0;           // Zero out hop_retry counter
+                return;
+            } else { //We've done the max number of hops, let's do a full abort/retry to rtl_alt!
+                rtl_state = RTL_InitialClimb; // Set the state back to Initial climb
+                beacon_failure_counter = 0; // Zero out the cycle counter
+                beacon_hop_retry_counter = 0; // Zero out hop_retry counter
                 Log_Write_Event(DATA_RTLPREC_RETRY);
                 rtlstatus = 4;
-                return;  
+                return;
             }
-        }
-       else {                                   // If we're at < 100 failures, keep our climb rate halted, and increment our failure counter
-            cmb_rate = 0;                           // Halt descent
+        } else { // If we're at < 100 failures, keep our climb rate halted, and increment our failure counter
+            cmb_rate = 0; // Halt descent
             beacon_failure_counter++;
-            rtlstatus = 2;               // Increment failure counter
-            }
-    }
-    else{                                       // If we see the beacon
-        beacon_failure_counter = 0;
-        rtlstatus = 1;                 // Clear the counter, descent will resume
+            rtlstatus = 2; // Increment failure counter
         }
+    } else { // If we see the beacon
+        beacon_failure_counter = 0;
+        rtlstatus = 1; // Clear the counter, descent will resume
+    }
 
     // call z-axis position controller
     //float cmb_rate = get_land_descent_speed(); //Doing this above
@@ -199,37 +191,17 @@ void Copter::rtlprec_land_run()
     // check if we've completed this stage of RTL
     rtl_state_complete = ap.land_complete;
 
-      
-        
-      if (ap.land_complete){
+    if (ap.land_complete) {
         rtlstatus = 5;
-      }
-    static uint32_t last_sec;
-    
-    uint32_t tnow = AP_HAL::millis();
-    
-    if (tnow - last_sec > 1000) {
-        last_sec = tnow;
-        gcs_send_text_fmt(MAV_SEVERITY_INFO, "Altitude: %f | Beacon:%d",inertial_nav.get_altitude(),precland.beacon_detected());
-        gcs_send_text_fmt(MAV_SEVERITY_INFO, "Status: %u |Failures: %u | Hops: %u|",rtlstatus,beacon_failure_counter,beacon_hop_retry_counter);
-
     }
-
 }
 
-
-void Copter::rtlprec_hop_run()      //This function runs the waypoint controller while running a "Short hop"
+void Copter::rtlprec_hop_run() //This function runs the waypoint controller while running a "Short hop"
 {
-      // if not auto armed or motor interlock not enabled set throttle to zero and exit immediately
-    if(!ap.auto_armed || !motors.get_interlock()) {
-#if FRAME_CONFIG == HELI_FRAME  // Helicopters always stabilize roll/pitch/yaw
-        // call attitude controller
-        attitude_control.input_euler_angle_roll_pitch_euler_rate_yaw_smooth(0, 0, 0, get_smoothing_gain());
-        attitude_control.set_throttle_out(0,false,g.throttle_filt);
-#else   // multicopters do not stabilize roll/pitch/yaw when disarmed
+    // if not auto armed or motor interlock not enabled set throttle to zero and exit immediately
+    if (!ap.auto_armed || !motors.get_interlock()) {
         // reset attitude control targets
-        attitude_control.set_throttle_out_unstabilized(0,true,g.throttle_filt);
-#endif
+        attitude_control.set_throttle_out_unstabilized(0, true, g.throttle_filt);
         // To-Do: re-initialise wpnav targets
         return;
     }
@@ -254,20 +226,20 @@ void Copter::rtlprec_hop_run()      //This function runs the waypoint controller
     if (auto_yaw_mode == AUTO_YAW_HOLD) {
         // roll & pitch from waypoint controller, yaw rate from pilot
         attitude_control.input_euler_angle_roll_pitch_euler_rate_yaw(wp_nav.get_roll(), wp_nav.get_pitch(), target_yaw_rate);
-    }else{
+    } else {
         // roll, pitch from waypoint controller, yaw heading from auto_heading()
-        attitude_control.input_euler_angle_roll_pitch_yaw(wp_nav.get_roll(), wp_nav.get_pitch(), get_auto_heading(),true);
+        attitude_control.input_euler_angle_roll_pitch_yaw(wp_nav.get_roll(), wp_nav.get_pitch(), get_auto_heading(), true);
     }
 
     // check if we've completed this stage of RTL
     rtl_state_complete = wp_nav.reached_wp_destination();
 
-      uint32_t tnow = AP_HAL::millis();
-      static uint32_t last_sec;
+    uint32_t tnow = AP_HAL::millis();
+    static uint32_t last_sec;
 
     if (tnow - last_sec > 1000) {
         last_sec = tnow;
-        gcs_send_text_fmt(MAV_SEVERITY_INFO, "Alt:%f | B:%d | InHop",inertial_nav.get_altitude(),precland.beacon_detected());
+        gcs_send_text_fmt(MAV_SEVERITY_INFO, "Alt:%f | B:%d | InHop", inertial_nav.get_altitude(), precland.beacon_detected());
     }
 }
 
