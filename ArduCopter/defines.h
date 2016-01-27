@@ -197,7 +197,8 @@ enum RTLState {
     RTL_ReturnHome,
     RTL_LoiterAtHome,
     RTL_FinalDescent,
-    RTL_Land
+    RTL_Land,
+    RTLPREC_HOP
 };
 
 // Alt_Hold states

@@ -512,7 +512,6 @@ private:
     // Precision Landing
 #if PRECISION_LANDING == ENABLED
     AC_PrecLand precland;
-    uint8_t beacon_failure_counter;
 #endif
 
     // Pilot Input Management Library
@@ -815,6 +814,7 @@ private:
     void rtl_descent_run();
    // void rtlprec_descent_run(); //Added by Nick
     void rtlprec_land_run(); //Added by Nick  
+    void rtlprec_hop_run();
     void rtl_land_start();
     void rtl_land_run();
     void rtl_build_path();

@@ -56,6 +56,11 @@ public:
         k_param_ins,                            // libraries/AP_InertialSensor variables
         k_param_NavEKF2,
 
+        //Room for 5 added parameters here
+        k_param_rtlprec_hopalt,         // Added by Nick 
+        k_param_rtlprec_lostwait,       // Added by Nick
+        k_param_rtlprec_hopretry,       // Added by Nick
+
         // simulation
         k_param_sitl = 10,
 
@@ -120,8 +125,8 @@ public:
         k_param_poshold_brake_angle_max,
         k_param_pilot_accel_z,
         k_param_serial0_baud,           // deprecated - remove
-        k_param_land_basket_alt, //Altitude of the top of our landing basket --Added by Nick
-        k_param_land_beacon_alt, //Altitude of the IRLock landing beacon --Added by Nick
+        k_param_serial1_baud,           // deprecated - remove
+        k_param_serial2_baud,           // deprecated - remove                   // Added by Nick
         k_param_land_repositioning,
         k_param_sonar, // sonar object
         k_param_fs_ekf_thresh,
@@ -450,8 +455,9 @@ public:
     AP_Float        fs_ekf_thresh;
     AP_Int16        gcs_pid_mask;
 
-    AP_Int8         land_basket_alt;  //Added by Nick
-    AP_Int8         land_beacon_alt;  //Added by Nick
+    AP_Int16        rtlprec_lostwait;   //Added by Nick
+    AP_Int16        rtlprec_hopretry;   //Added by Nick
+    AP_Float        rtlprec_hopalt;     //Added by Nick
 
 
 #if FRAME_CONFIG ==     HELI_FRAME

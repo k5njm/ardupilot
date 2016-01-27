@@ -1104,19 +1104,26 @@ const AP_Param::Info Copter::var_info[] = {
     // @Path: ../libraries/AP_Notify/AP_Notify.cpp
     GOBJECT(notify, "NTF_",  AP_Notify),
 
-    // @Param: LAND_BASKET_ALT
-    // @DisplayName: Precision Landing Basket Altitude
-    // @Description: Altitude (in cm) of the top of the landing basket
+    // @Param: RTLPREC_LOSTWAIT
+    // @DisplayName: Precision Landing Beacon Wait time
+    // @Description: Wait time in milliseconds
     // @Range: 0 32767
     // @User: Advanced
-    GSCALAR(land_basket_alt, "LAND_BASKET_ALT", LAND_BASKET_ALT_DEFAULT),
+    GSCALAR(rtlprec_lostwait, "RTLPREC_LOSTWAIT", 500),
 
-    // @Param: LAND_BEACON_ALT
-    // @DisplayName: Precision Landing Beacon Altitude
-    // @Description: Altitude (in cm) of the landing beacon
+    // @Param: RTLPREC_HOPRETRY
+    // @DisplayName: RTLPREC Hop Retries
+    // @Description: How many times to try a short hop retry if the beacon is lost
     // @Range: 0 32767
     // @User: Advanced
-    GSCALAR(land_beacon_alt, "LAND_BEACON_ALT", LAND_BEACON_ALT_DEFAULT),
+    GSCALAR(rtlprec_hopretry, "RTLPREC_HOPRETRY", 3),
+
+    // @Param: RTLPREC_HOPALT
+    // @DisplayName: RTLPREC Hop Retry Altitude
+    // @Description: How high to climb when hopping
+    // @Range: 0 32767
+    // @User: Advanced
+    GSCALAR(rtlprec_hopalt, "RTLPREC_HOPALT", 100.0),  //in Centimeters, 100 = 1 meter
 
     AP_VAREND
 };
@@ -1143,8 +1150,8 @@ const AP_Param::ConversionInfo conversion_table[] = {
     { Parameters::k_param_pack_capacity,      0,      AP_PARAM_INT32, "BATT_CAPACITY" },
     { Parameters::k_param_log_bitmask_old,    0,      AP_PARAM_INT16, "LOG_BITMASK" },
     { Parameters::k_param_serial0_baud,       0,      AP_PARAM_INT16, "SERIAL0_BAUD" },
-//    { Parameters::k_param_serial1_baud,       0,      AP_PARAM_INT16, "SERIAL1_BAUD" },
-//    { Parameters::k_param_serial2_baud,       0,      AP_PARAM_INT16, "SERIAL2_BAUD" },
+    { Parameters::k_param_serial1_baud,       0,      AP_PARAM_INT16, "SERIAL1_BAUD" },
+    { Parameters::k_param_serial2_baud,       0,      AP_PARAM_INT16, "SERIAL2_BAUD" },
 };
 
 void Copter::load_parameters(void)

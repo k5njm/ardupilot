@@ -773,11 +773,13 @@
 
 #endif // __ARDUCOPTER_CONFIG_H__
 
+/*
   //Landing Beacon Defaults -- By Nick
-#ifndef LAND_BASKET_ALT_DEFAULT
- # define LAND_BASKET_ALT_DEFAULT      60     // 2ft in cm
+#ifndef RTLPREC_LOSTBEACON_WAIT_DEFAULT
+ # define RTLPREC_LOSTBEACON_WAIT_DEFAULT      500     // cycles in a 100hz loop, so it's seconds * 100
 #endif
 
-#ifndef LAND_BEACON_ALT_DEFAULT
- # define LAND_BEACON_ALT_DEFAULT      42     // 1.38ft
+#ifndef RTLPREC_HOP_RETRIES_DEFAULT
+ # define RTLPREC_HOP_RETRIES_DEFAULT     3     //
 #endif
+*/
