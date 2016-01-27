@@ -512,8 +512,6 @@ private:
     // Precision Landing
 #if PRECISION_LANDING == ENABLED
     AC_PrecLand precland;
-    uint8_t beacon_failure_counter;
-    uint8_t beacon_hop_retry_counter;
 #endif
 
     // Pilot Input Management Library

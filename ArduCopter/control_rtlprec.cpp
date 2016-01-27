@@ -2,6 +2,8 @@
 
 #include "Copter.h"
 
+
+
 /*
  * control_rtlpref.pde - init and run calls for RTL flight mode
  *
@@ -15,11 +17,7 @@
 // rtlprec_init - initialise rtl controller
 bool Copter::rtlprec_init(bool ignore_checks)
 {
-    
-    //initialize beacon_failure_counter
-    beacon_failure_counter = 0;
-    beacon_hop_retry_counter = 0;
-
+   
     if (position_ok() || ignore_checks) {
         rtl_build_path();
         rtl_climb_start();
@@ -33,9 +31,6 @@ bool Copter::rtlprec_init(bool ignore_checks)
 // should be called at 100hz or more
 void Copter::rtlprec_run()
 {
-   // Test code to spam the GCS
-   // gcs_send_text_fmt(MAV_SEVERITY_INFO, "V:%f | R:%f | A:%f",sonar.voltage_mv(),sonar.distance_cm(),inertial_nav.get_altitude());   //also, just sonar_alt;
-
     // check if we need to move to next state
     if (rtl_state_complete) {
         switch (rtl_state) {
@@ -90,6 +85,10 @@ void Copter::rtlprec_land_run()
 {
     int16_t roll_control = 0, pitch_control = 0;
     float target_yaw_rate = 0;
+    static uint16_t beacon_failure_counter;
+    static uint16_t beacon_hop_retry_counter;
+    static uint8_t rtlstatus;
+
     // if not auto armed or landing completed or motor interlock not enabled set throttle to zero and exit immediately
     if(!ap.auto_armed || ap.land_complete || !motors.get_interlock()) {
 #if FRAME_CONFIG == HELI_FRAME  // Helicopters always stabilize roll/pitch/yaw
@@ -155,9 +154,10 @@ void Copter::rtlprec_land_run()
 
     float cmb_rate = get_land_descent_speed();
 
-    if (!precland.beacon_detected()) {          // If the beacon isn't detected
-        if (beacon_failure_counter >= 500) { //g.rtlprec_lostwait) {        // We've hit our max number of cycle failures,
+    if (!precland.beacon_detected() && !ap.land_complete && !ap.land_complete_maybe) {          // If the beacon isn't detected
+        if (beacon_failure_counter >= g.rtlprec_lostwait) {        // We've hit our max number of cycle failures,
            if (beacon_hop_retry_counter < g.rtlprec_hopretry) {       // We're below our max number of short hop retries, do a Hop
+                rtlstatus = 3;
                 beacon_hop_retry_counter++;                                 //Increment Hop Counter
                 Vector3f target_pos = inertial_nav.get_position();          //Get My current position
                 target_pos.z = target_pos.z + g.rtlprec_hopalt;              //Set Z to current altitude + rtlprec_hopalt
@@ -166,20 +166,23 @@ void Copter::rtlprec_land_run()
                 return;  
             }
             else {                                       //We've done the max number of hops, let's do a full abort/retry to rtl_alt!
-                 rtl_state = RTL_InitialClimb;           // Set the state back to Initial climb
+                rtl_state = RTL_InitialClimb;           // Set the state back to Initial climb
                 beacon_failure_counter = 0;             // Zero out the cycle counter
                 beacon_hop_retry_counter = 0;           // Zero out hop_retry counter
                 Log_Write_Event(DATA_RTLPREC_RETRY);
+                rtlstatus = 4;
                 return;  
             }
         }
        else {                                   // If we're at < 100 failures, keep our climb rate halted, and increment our failure counter
             cmb_rate = 0;                           // Halt descent
-            beacon_failure_counter++;               // Increment failure counter
+            beacon_failure_counter++;
+            rtlstatus = 2;               // Increment failure counter
             }
     }
     else{                                       // If we see the beacon
-        beacon_failure_counter = 0;                 // Clear the counter, descent will resume
+        beacon_failure_counter = 0;
+        rtlstatus = 1;                 // Clear the counter, descent will resume
         }
 
     // call z-axis position controller
@@ -195,6 +198,22 @@ void Copter::rtlprec_land_run()
 
     // check if we've completed this stage of RTL
     rtl_state_complete = ap.land_complete;
+
+      
+        
+      if (ap.land_complete){
+        rtlstatus = 5;
+      }
+    static uint32_t last_sec;
+    
+    uint32_t tnow = AP_HAL::millis();
+    
+    if (tnow - last_sec > 1000) {
+        last_sec = tnow;
+        gcs_send_text_fmt(MAV_SEVERITY_INFO, "Altitude: %f | Beacon:%d",inertial_nav.get_altitude(),precland.beacon_detected());
+        gcs_send_text_fmt(MAV_SEVERITY_INFO, "Status: %u |Failures: %u | Hops: %u|",rtlstatus,beacon_failure_counter,beacon_hop_retry_counter);
+
+    }
 
 }
 
@@ -242,5 +261,13 @@ void Copter::rtlprec_hop_run()      //This function runs the waypoint controller
 
     // check if we've completed this stage of RTL
     rtl_state_complete = wp_nav.reached_wp_destination();
+
+      uint32_t tnow = AP_HAL::millis();
+      static uint32_t last_sec;
+
+    if (tnow - last_sec > 1000) {
+        last_sec = tnow;
+        gcs_send_text_fmt(MAV_SEVERITY_INFO, "Alt:%f | B:%d | InHop",inertial_nav.get_altitude(),precland.beacon_detected());
+    }
 }
 
