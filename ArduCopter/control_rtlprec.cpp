@@ -171,12 +171,20 @@ void Copter::rtlprec_land_run()
         }
       }
 
-
     float cmb_rate;
-    if(rtlprec_fail || tnow - rtlprec_beacon_acquired_time < g.rtlprec_timeout) {       //If the beacon isn't detected, or has only been recently redetected, don't descend.
+                                                            // Could change the value below to a parameter, instead I'm just using 1/10th of the timeout period
+    if((rtlprec_fail && (tnow - rtlprec_beacon_lost_time > g.rtlprec_timeout/10)) || tnow - rtlprec_beacon_acquired_time < g.rtlprec_timeout) {       //If the beacon isn't detected, or has only been recently redetected, don't descend yet
+        if (cmb_rate != 0){
+            gcs_send_text_fmt(MAV_SEVERITY_INFO, "Alt: %f | Beacon:%d | Descent Halted (was %f)",current_alt,precland.beacon_detected(),cmb_rate);    
+        }
         cmb_rate = 0;
     } else {
-        cmb_rate = get_land_descent_speed();
+        if (cmb_rate == 0){
+            cmb_rate = get_land_descent_speed();
+            gcs_send_text_fmt(MAV_SEVERITY_INFO, "Alt: %f | Beacon:%d | Descent Resumed to: %f",current_alt,precland.beacon_detected(),cmb_rate);    
+        } else {
+            cmb_rate = get_land_descent_speed();
+          }
     }
 
     // record desired climb rate for logging
