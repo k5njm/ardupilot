@@ -161,9 +161,9 @@ void Copter::rtlprec_land_run()
         if (!rtlprec_fail){                             // And failure state was set to 'false'
             rtlprec_beacon_lost_time = tnow;            // Initialize timer
             rtlprec_fail = true;                        // And set failure state to 'true'
-        } else {
-            if( tnow - rtlprec_beacon_lost_time >= g.rtlprec_timeout ) {     // If the beacon hasn't been detected during our timeout period
-               rtl_state = RTL_InitialClimb;                                    // Timeout and restart climb
+        } else {                                                            // If failure state was set to "true"
+            if( tnow - rtlprec_beacon_lost_time >= g.rtlprec_timeout ) {        // If the beacon hasn't been detected during our timeout period
+               rtl_state = RTL_InitialClimb;                                    // Restart climb
             }     
           }
         
@@ -176,12 +176,12 @@ void Copter::rtlprec_land_run()
 
     float cmb_rate;
     
-    bool rtlprec_timeout_buffer = tnow - rtlprec_beacon_lost_time > g.rtlprec_timeout/10;   //Returns true if I've been in fail for than 1/10 of rtlprec_timeout. 
+    bool rtlprec_timeout_flag = tnow - rtlprec_beacon_lost_time > g.rtlprec_timeout/10;   //Returns true if I've been in fail for than 1/10 of rtlprec_timeout. 
                                                                                             //This prevents halting descent for short beacon failure durations
     
-    bool rtlprec_acquisition_buffer = tnow - rtlprec_beacon_acquired_time < g.rtlprec_timeout;  //Returns true if I've reacquired the beacon recently
+    bool rtlprec_acquisition_flag = tnow - rtlprec_beacon_acquired_time < g.rtlprec_timeout;  //Returns true if I've reacquired the beacon recently
 
-    if( ((rtlprec_fail && rtlprec_timeout_buffer) || rtlprec_acquisition_buffer)) && !ap.land_complete_maybe){       //If the beacon isn't detected, or has only been recently redetected, don't descend yet
+    if( ((rtlprec_fail && rtlprec_timeout_flag) || rtlprec_acquisition_flag) && !ap.land_complete_maybe){       //If the beacon isn't detected, or has only been recently redetected, don't descend yet
         
         if (cmb_rate != 0){
             gcs_send_text_fmt(MAV_SEVERITY_INFO, "Alt: %f | Beacon:%d | Descent Halted (was %f)",current_alt,precland.beacon_detected(),cmb_rate);    
