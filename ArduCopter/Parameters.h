@@ -59,7 +59,6 @@ public:
         //Room for 5 added parameters here
         k_param_rtlprec_alt,         // Added by Nick 
         k_param_rtlprec_timeout,       // Added by Nick
-       // k_param_rtlprec_hopretry,       // Added by Nick
 
         // simulation
         k_param_sitl = 10,
@@ -456,7 +455,6 @@ public:
     AP_Int16        gcs_pid_mask;
 
     AP_Float        rtlprec_timeout;   //Added by Nick
-    //AP_Int16        rtlprec_hopretry;   //Added by Nick
     AP_Float        rtlprec_alt;     //Added by Nick
 
 

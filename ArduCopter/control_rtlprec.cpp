@@ -97,7 +97,7 @@ void Copter::rtlprec_land_run()
     
     float current_alt = inertial_nav.get_altitude();
 
-    if (tnow - last_sec > 1000) {
+    if (tnow - last_sec > 500) {
         last_sec = tnow;
         gcs_send_text_fmt(MAV_SEVERITY_INFO, "Alt: %f | Beacon:%d | Timeout: %f",current_alt,precland.beacon_detected(),(millis() - rtlprec_beacon_lost_time));
     }
@@ -110,7 +110,6 @@ void Copter::rtlprec_land_run()
         init_disarm_motors();
         rtl_state_complete = true;
         gcs_send_text_fmt(MAV_SEVERITY_INFO, "Alt: %f | Beacon:%d | Landed!!",current_alt,precland.beacon_detected());
-
         return;
      }
 
@@ -157,6 +156,11 @@ void Copter::rtlprec_land_run()
     // call attitude controller
     attitude_control.input_euler_angle_roll_pitch_euler_rate_yaw(wp_nav.get_roll(), wp_nav.get_pitch(), target_yaw_rate);
 
+static float cmb_rate;
+
+if (current_alt > g.rtlprec_alt){   //encompass all my custom code here
+
+
     if (!precland.beacon_detected()){                // If the beacon isn't detected
         if (!rtlprec_fail){                             // And failure state was set to 'false'
             rtlprec_beacon_lost_time = tnow;            // Initialize timer
@@ -174,12 +178,12 @@ void Copter::rtlprec_land_run()
         }
       }
 
-    float cmb_rate;
+    
     
     bool rtlprec_timeout_flag = tnow - rtlprec_beacon_lost_time > g.rtlprec_timeout/10;   //Returns true if I've been in fail for than 1/10 of rtlprec_timeout. 
                                                                                             //This prevents halting descent for short beacon failure durations
     
-    bool rtlprec_acquisition_flag = tnow - rtlprec_beacon_acquired_time < g.rtlprec_timeout;  //Returns true if I've reacquired the beacon recently
+    bool rtlprec_acquisition_flag = !rtlprec_fail && tnow - rtlprec_beacon_acquired_time < g.rtlprec_timeout;  //Returns true if I've reacquired the beacon recently
 
     if( ((rtlprec_fail && rtlprec_timeout_flag) || rtlprec_acquisition_flag) && !ap.land_complete_maybe){       //If the beacon isn't detected, or has only been recently redetected, don't descend yet
         
@@ -196,6 +200,9 @@ void Copter::rtlprec_land_run()
           }
     }
 
+} else {  //If we're not running my custom code, use the default land_descent speed
+    cmb_rate = get_land_descent_speed();
+}
     // record desired climb rate for logging
     desired_climb_rate = cmb_rate;
 
