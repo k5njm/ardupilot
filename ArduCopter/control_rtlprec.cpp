@@ -109,6 +109,8 @@ void Copter::rtlprec_land_run()
         wp_nav.init_loiter_target();
         init_disarm_motors();
         rtl_state_complete = true;
+        gcs_send_text_fmt(MAV_SEVERITY_INFO, "Alt: %f | Beacon:%d | Landed!!",current_alt,precland.beacon_detected());
+
         return;
      }
 
@@ -116,6 +118,7 @@ void Copter::rtlprec_land_run()
     // relax loiter target if we might be landed
     if (ap.land_complete_maybe) {
         wp_nav.loiter_soften_for_landing();
+        gcs_send_text_fmt(MAV_SEVERITY_INFO, "Alt: %f | Beacon:%d | Maybe Landed?!?",current_alt,precland.beacon_detected());
     }
 
     // process pilot inputs
@@ -172,8 +175,14 @@ void Copter::rtlprec_land_run()
       }
 
     float cmb_rate;
-                                                            // Could change the value below to a parameter, instead I'm just using 1/10th of the timeout period
-    if((rtlprec_fail && (tnow - rtlprec_beacon_lost_time > g.rtlprec_timeout/10)) || tnow - rtlprec_beacon_acquired_time < g.rtlprec_timeout) {       //If the beacon isn't detected, or has only been recently redetected, don't descend yet
+    
+    bool rtlprec_timeout_buffer = tnow - rtlprec_beacon_lost_time > g.rtlprec_timeout/10;   //Returns true if I've been in fail for than 1/10 of rtlprec_timeout. 
+                                                                                            //This prevents halting descent for short beacon failure durations
+    
+    bool rtlprec_acquisition_buffer = tnow - rtlprec_beacon_acquired_time < g.rtlprec_timeout;  //Returns true if I've reacquired the beacon recently
+
+    if( ((rtlprec_fail && rtlprec_timeout_buffer) || rtlprec_acquisition_buffer)) && !ap.land_complete_maybe){       //If the beacon isn't detected, or has only been recently redetected, don't descend yet
+        
         if (cmb_rate != 0){
             gcs_send_text_fmt(MAV_SEVERITY_INFO, "Alt: %f | Beacon:%d | Descent Halted (was %f)",current_alt,precland.beacon_detected(),cmb_rate);    
         }
