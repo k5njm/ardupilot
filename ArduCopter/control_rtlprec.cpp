@@ -14,6 +14,10 @@
  * and the lower implementation of the waypoint or landing controllers within those states
  */
 
+
+static uint32_t rtlprec_beacon_lost_time;
+static bool rtlprec_pause;
+
 // rtlprec_init - initialise rtl controller
 bool Copter::rtlprec_init(bool ignore_checks)
 {
@@ -25,10 +29,14 @@ bool Copter::rtlprec_init(bool ignore_checks)
     }else{
         return false;
     }
+    
+    rtlprec_pause = false;  //initialize the pause value
+    ap.land_repo_active = false;
+
 }
 
 // rtl_run - runs the return-to-launch controller
-// should be called at 100hz or more
+// Seeems to be called at 400hz in the "Fast Loop", via ArduCopter.cpp
 void Copter::rtlprec_run()
 {
     // check if we need to move to next state
@@ -49,9 +57,6 @@ void Copter::rtlprec_run()
             break;
         case RTL_Land:
             // do nothing - rtl_land_run will take care of disarming motors
-            break;
-        case RTLPREC_HOP:
-            rtlprec_land_run();
             break;
         }
     }
@@ -74,9 +79,6 @@ void Copter::rtlprec_run()
     case RTL_Land:
         rtlprec_land_run();
         break;
-    case RTLPREC_HOP:
-        rtlprec_hop_run();
-        break;
     }
 }
 
@@ -85,30 +87,36 @@ void Copter::rtlprec_land_run()
 {
     int16_t roll_control = 0, pitch_control = 0;
     float target_yaw_rate = 0;
-    static uint16_t beacon_failure_counter;
-    static uint16_t beacon_hop_retry_counter;
-    static uint8_t rtlstatus;
 
-    // if not auto armed or landing completed or motor interlock not enabled set throttle to zero and exit immediately
-    if(!ap.auto_armed || ap.land_complete || !motors.get_interlock()) {
-        attitude_control.set_throttle_out_unstabilized(0,true,g.throttle_filt);
-        wp_nav.init_loiter_target();
 
-        if (ap.land_complete) {
-            init_disarm_motors();
-        }
+    static uint32_t last_sec;
+    
+    uint32_t tnow = AP_HAL::millis();
+    
+    float current_alt = inertial_nav.get_altitude();
 
-        // check if we've completed this stage of RTL
-        rtl_state_complete = ap.land_complete;
-        return;
+    if (tnow - last_sec > 1000) {
+        last_sec = tnow;
+        gcs_send_text_fmt(MAV_SEVERITY_INFO, "Alt: %f | Beacon:%d | Timeout: %f",current_alt,precland.beacon_detected(),(millis() - rtlprec_beacon_lost_time));
     }
 
+    // if not auto armed or landing completed or motor interlock not enabled set throttle to zero and exit immediately
+
+    if (ap.land_complete) {
+        attitude_control.set_throttle_out_unstabilized(0,true,g.throttle_filt);
+        wp_nav.init_loiter_target();
+        init_disarm_motors();
+        rtl_state_complete = true;
+        return;
+     }
+
+   
     // relax loiter target if we might be landed
     if (ap.land_complete_maybe) {
         wp_nav.loiter_soften_for_landing();
     }
 
-    // process pilot's input
+    // process pilot inputs
     if (!failsafe.radio) {
         if (g.land_repositioning) {
             // apply SIMPLE mode transform to pilot inputs
@@ -117,13 +125,18 @@ void Copter::rtlprec_land_run()
             // process pilot's roll and pitch input
             roll_control = channel_roll->control_in;
             pitch_control = channel_pitch->control_in;
+
+            // record if pilot has overriden roll or pitch
+            if (roll_control != 0 || pitch_control != 0) {
+                ap.land_repo_active = true;
+            }
         }
 
         // get pilot's desired yaw rate
         target_yaw_rate = get_pilot_desired_yaw_rate(channel_yaw->control_in);
     }
 
-     // process pilot's roll and pitch input
+    // process roll, pitch inputs
     wp_nav.set_pilot_desired_acceleration(roll_control, pitch_control);
 
 #if PRECISION_LANDING == ENABLED
@@ -133,127 +146,41 @@ void Copter::rtlprec_land_run()
     }
 #endif
 
-
     // run loiter controller
     wp_nav.update_loiter(ekfGndSpdLimit, ekfNavVelGainScaler);
 
-    float cmb_rate = get_land_descent_speed();
+    // call attitude controller
+    attitude_control.input_euler_angle_roll_pitch_euler_rate_yaw(wp_nav.get_roll(), wp_nav.get_pitch(), target_yaw_rate);
 
-    if (!precland.beacon_detected() && !ap.land_complete && !ap.land_complete_maybe) {          // If the beacon isn't detected
-        if (beacon_failure_counter >= g.rtlprec_lostwait) {        // We've hit our max number of cycle failures,
-           if (beacon_hop_retry_counter < g.rtlprec_hopretry) {       // We're below our max number of short hop retries, do a Hop
-                rtlstatus = 3;
-                beacon_hop_retry_counter++;                                 //Increment Hop Counter
-                beacon_failure_counter = 0;                                 // Zero out the cycle counter
-                Vector3f target_pos = inertial_nav.get_position();          //Get My current position
-                target_pos.z = target_pos.z + g.rtlprec_hopalt;             //Set Z to current altitude + rtlprec_hopalt
-                wp_nav.set_wp_destination(target_pos);
-                rtl_state = RTLPREC_HOP;
-                return;  
-            }
-            else {                                       //We've done the max number of hops, let's do a full abort/retry to rtl_alt!
-                rtl_state = RTL_InitialClimb;           // Set the state back to Initial climb
-                beacon_failure_counter = 0;             // Zero out the cycle counter
-                beacon_hop_retry_counter = 0;           // Zero out hop_retry counter
-                Log_Write_Event(DATA_RTLPREC_RETRY);
-                rtlstatus = 4;
-                return;  
-            }
-        }
-       else {                                   // If we're at < 100 failures, keep our climb rate halted, and increment our failure counter
-            cmb_rate = 0;                           // Halt descent
-            beacon_failure_counter++;
-            rtlstatus = 2;               // Increment failure counter
-            }
+    if (!precland.beacon_detected()){                // If the beacon isn't detected
+        if (!rtlprec_pause){                            // and the timer wasn't started
+            rtlprec_beacon_lost_time = millis();        // Initialize timer
+            rtlprec_pause = true;                       // Flag that we should pause
+        } else {
+            if( millis() - rtlprec_beacon_lost_time >= g.rtlprec_timeout ) {     // If the beacon hasn't been detected during our timeout period
+               rtl_state = RTL_InitialClimb;                                    // Timeout and restart climb
+            }     
+          }
+        
+    } else {
+        rtlprec_pause = false;
+      }
+
+
+    float cmb_rate;
+    if(rtlprec_pause) {
+        cmb_rate = 0;
+    } else {
+        cmb_rate = get_land_descent_speed();
     }
-    else{                                       // If we see the beacon
-        beacon_failure_counter = 0;
-        rtlstatus = 1;                 // Clear the counter, descent will resume
-        }
-
-    // call z-axis position controller
-    //float cmb_rate = get_land_descent_speed(); //Doing this above
-    pos_control.set_alt_target_from_climb_rate(cmb_rate, G_Dt, true);
-    pos_control.update_z_controller();
 
     // record desired climb rate for logging
     desired_climb_rate = cmb_rate;
 
-    // roll & pitch from waypoint controller, yaw rate from pilot
-    attitude_control.input_euler_angle_roll_pitch_euler_rate_yaw(wp_nav.get_roll(), wp_nav.get_pitch(), target_yaw_rate);
-
-    // check if we've completed this stage of RTL
-    rtl_state_complete = ap.land_complete;
-
-      
-        
-      if (ap.land_complete){
-        rtlstatus = 5;
-      }
-
-    static uint32_t last_sec;
-    
-    uint32_t tnow = AP_HAL::millis();
-    
-    if (tnow - last_sec > 1000) {
-        last_sec = tnow;
-        gcs_send_text_fmt(MAV_SEVERITY_INFO, "Altitude: %f | Beacon:%d | Status: %u |Failures: %u | Hops: %u|",inertial_nav.get_altitude(),precland.beacon_detected(),rtlstatus,beacon_failure_counter,beacon_hop_retry_counter);
-
-    }
-
-}
-
-
-void Copter::rtlprec_hop_run()      //This function runs the waypoint controller while running a "Short hop"
-{
-      // if not auto armed or motor interlock not enabled set throttle to zero and exit immediately
-    if(!ap.auto_armed || !motors.get_interlock()) {
-#if FRAME_CONFIG == HELI_FRAME  // Helicopters always stabilize roll/pitch/yaw
-        // call attitude controller
-        attitude_control.input_euler_angle_roll_pitch_euler_rate_yaw_smooth(0, 0, 0, get_smoothing_gain());
-        attitude_control.set_throttle_out(0,false,g.throttle_filt);
-#else   // multicopters do not stabilize roll/pitch/yaw when disarmed
-        // reset attitude control targets
-        attitude_control.set_throttle_out_unstabilized(0,true,g.throttle_filt);
-#endif
-        // To-Do: re-initialise wpnav targets
-        return;
-    }
-
-    // process pilot's yaw input
-    float target_yaw_rate = 0;
-    if (!failsafe.radio) {
-        // get pilot's desired yaw rate
-        target_yaw_rate = get_pilot_desired_yaw_rate(channel_yaw->control_in);
-        if (!is_zero(target_yaw_rate)) {
-            set_auto_yaw_mode(AUTO_YAW_HOLD);
-        }
-    }
-
-    // run waypoint controller
-    wp_nav.update_wpnav();
-
-    // call z-axis position controller (wpnav should have already updated it's alt target)
+    // update altitude target and call position controller
+    pos_control.set_alt_target_from_climb_rate(cmb_rate, G_Dt, true);
     pos_control.update_z_controller();
 
-    // call attitude controller
-    if (auto_yaw_mode == AUTO_YAW_HOLD) {
-        // roll & pitch from waypoint controller, yaw rate from pilot
-        attitude_control.input_euler_angle_roll_pitch_euler_rate_yaw(wp_nav.get_roll(), wp_nav.get_pitch(), target_yaw_rate);
-    }else{
-        // roll, pitch from waypoint controller, yaw heading from auto_heading()
-        attitude_control.input_euler_angle_roll_pitch_yaw(wp_nav.get_roll(), wp_nav.get_pitch(), get_auto_heading(),true);
-    }
-
-    // check if we've completed this stage of RTL
-    rtl_state_complete = wp_nav.reached_wp_destination();
-
-      uint32_t tnow = AP_HAL::millis();
-      static uint32_t last_sec;
-
-    if (tnow - last_sec > 1000) {
-        last_sec = tnow;
-        gcs_send_text_fmt(MAV_SEVERITY_INFO, "Alt:%f | B:%d | InHop",inertial_nav.get_altitude(),precland.beacon_detected());
-    }
 }
+
 

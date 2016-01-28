@@ -814,7 +814,6 @@ private:
     void rtl_descent_run();
    // void rtlprec_descent_run(); //Added by Nick
     void rtlprec_land_run(); //Added by Nick  
-    void rtlprec_hop_run();
     void rtl_land_start();
     void rtl_land_run();
     void rtl_build_path();

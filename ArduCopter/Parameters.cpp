@@ -1104,26 +1104,19 @@ const AP_Param::Info Copter::var_info[] = {
     // @Path: ../libraries/AP_Notify/AP_Notify.cpp
     GOBJECT(notify, "NTF_",  AP_Notify),
 
-    // @Param: RTLPREC_LOSTWAIT
+    // @Param: RTLPREC_TIMEOUT
     // @DisplayName: Precision Landing Beacon Wait time
     // @Description: Wait time in milliseconds
     // @Range: 0 32767
     // @User: Advanced
-    GSCALAR(rtlprec_lostwait, "RTLPREC_LOSTWAIT", 500),
+    GSCALAR(rtlprec_timeout, "RTLPREC_timeout", 1000),  // in milliseconds
 
-    // @Param: RTLPREC_HOPRETRY
-    // @DisplayName: RTLPREC Hop Retries
-    // @Description: How many times to try a short hop retry if the beacon is lost
-    // @Range: 0 32767
-    // @User: Advanced
-    GSCALAR(rtlprec_hopretry, "RTLPREC_HOPRETRY", 3),
-
-    // @Param: RTLPREC_HOPALT
+    // @Param: RTLPREC_ALT
     // @DisplayName: RTLPREC Hop Retry Altitude
     // @Description: How high to climb when hopping
     // @Range: 0 32767
     // @User: Advanced
-    GSCALAR(rtlprec_hopalt, "RTLPREC_HOPALT", 100.0),  //in Centimeters, 100 = 1 meter
+    GSCALAR(rtlprec_alt, "RTLPREC_ALT", 150),  //in Centimeters, 100 = 1 meter
 
     AP_VAREND
 };

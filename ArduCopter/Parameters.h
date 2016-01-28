@@ -57,9 +57,9 @@ public:
         k_param_NavEKF2,
 
         //Room for 5 added parameters here
-        k_param_rtlprec_hopalt,         // Added by Nick 
-        k_param_rtlprec_lostwait,       // Added by Nick
-        k_param_rtlprec_hopretry,       // Added by Nick
+        k_param_rtlprec_alt,         // Added by Nick 
+        k_param_rtlprec_timeout,       // Added by Nick
+       // k_param_rtlprec_hopretry,       // Added by Nick
 
         // simulation
         k_param_sitl = 10,
@@ -455,9 +455,9 @@ public:
     AP_Float        fs_ekf_thresh;
     AP_Int16        gcs_pid_mask;
 
-    AP_Int16        rtlprec_lostwait;   //Added by Nick
-    AP_Int16        rtlprec_hopretry;   //Added by Nick
-    AP_Float        rtlprec_hopalt;     //Added by Nick
+    AP_Float        rtlprec_timeout;   //Added by Nick
+    //AP_Int16        rtlprec_hopretry;   //Added by Nick
+    AP_Float        rtlprec_alt;     //Added by Nick
 
 
 #if FRAME_CONFIG ==     HELI_FRAME
