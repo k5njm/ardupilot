@@ -16,7 +16,9 @@
 
 
 static uint32_t rtlprec_beacon_lost_time;
-static bool rtlprec_pause;
+static uint32_t rtlprec_beacon_acquired_time;
+
+static bool rtlprec_fail;
 
 // rtlprec_init - initialise rtl controller
 bool Copter::rtlprec_init(bool ignore_checks)
@@ -30,7 +32,7 @@ bool Copter::rtlprec_init(bool ignore_checks)
         return false;
     }
     
-    rtlprec_pause = false;  //initialize the pause value
+    rtlprec_fail = false;  //initialize the pause value
     ap.land_repo_active = false;
 
 }
@@ -153,22 +155,25 @@ void Copter::rtlprec_land_run()
     attitude_control.input_euler_angle_roll_pitch_euler_rate_yaw(wp_nav.get_roll(), wp_nav.get_pitch(), target_yaw_rate);
 
     if (!precland.beacon_detected()){                // If the beacon isn't detected
-        if (!rtlprec_pause){                            // and the timer wasn't started
-            rtlprec_beacon_lost_time = millis();        // Initialize timer
-            rtlprec_pause = true;                       // Flag that we should pause
+        if (!rtlprec_fail){                             // And failure state was set to 'false'
+            rtlprec_beacon_lost_time = tnow;            // Initialize timer
+            rtlprec_fail = true;                        // And set failure state to 'true'
         } else {
-            if( millis() - rtlprec_beacon_lost_time >= g.rtlprec_timeout ) {     // If the beacon hasn't been detected during our timeout period
+            if( tnow - rtlprec_beacon_lost_time >= g.rtlprec_timeout ) {     // If the beacon hasn't been detected during our timeout period
                rtl_state = RTL_InitialClimb;                                    // Timeout and restart climb
             }     
           }
         
-    } else {
-        rtlprec_pause = false;
+    } else {                                        //If the beacon is detected
+        if (rtlprec_fail) {                             //And the failure state was previously 'true'
+            rtlprec_beacon_acquired_time = tnow;        //Initialize the timer
+            rtlprec_fail = false;                       // and set failure state to 'false'
+        }
       }
 
 
     float cmb_rate;
-    if(rtlprec_pause) {
+    if(rtlprec_fail || tnow - rtlprec_beacon_acquired_time < g.rtlprec_timeout) {       //If the beacon isn't detected, or has only been recently redetected, don't descend.
         cmb_rate = 0;
     } else {
         cmb_rate = get_land_descent_speed();
